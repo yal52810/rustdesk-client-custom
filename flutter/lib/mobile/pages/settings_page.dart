@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
+import 'package:flutter_hbb/common/widgets/vip_widgets.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common.dart';
+import '../../common/hbbs/vip_api.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 import '../../consts.dart';
@@ -698,6 +700,32 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                   }
                 },
               ),
+              Obx(() {
+                if (gFFI.userModel.userName.value.isEmpty) {
+                  return SettingsTile(
+                    title: Text('注册'),
+                    leading: Icon(Icons.app_registration),
+                    onPressed: (context) {
+                      _showRegisterDialogMobile(context);
+                    },
+                  );
+                }
+                return SettingsTile(
+                  title: Text('查询到期时间'),
+                  leading: Icon(Icons.timer),
+                  onPressed: (context) => _showExpireDialogMobile(context),
+                );
+              }),
+              Obx(() {
+                if (gFFI.userModel.userName.value.isEmpty) {
+                  return SettingsTile.empty();
+                }
+                return SettingsTile(
+                  title: Text('充值'),
+                  leading: Icon(Icons.card_giftcard),
+                  onPressed: (context) => _showRechargeDialogMobile(context),
+                );
+              }),
             ],
           ),
         SettingsSection(title: Text(translate("Settings")), tiles: [
@@ -710,6 +738,13 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                     _isUsingPublicServer = await bind.mainIsUsingPublicServer();
                     setState(callback);
                   });
+                }),
+          if (!disabledSettings && !_hideNetwork && !_hideServer)
+            SettingsTile(
+                title: Text('线路选择'),
+                leading: Icon(Icons.public),
+                onPressed: (context) {
+                  showMobileLineSelectionSheet(context);
                 }),
           if (!_hideNetwork && !_hideProxy)
             SettingsTile(
@@ -1092,6 +1127,199 @@ void showAbout(OverlayDialogManager dialogManager) {
       actions: [],
     );
   }, clickMaskDismiss: true, backDismiss: true);
+}
+
+void _showExpireDialogMobile(BuildContext context) async {
+  final vipInfo = await VipApi.getVipInfo();
+  if (!context.mounted) return;
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('服务到期时间'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (vipInfo != null) ...[
+            Text('用户名: ${vipInfo.username}'),
+            SizedBox(height: 10),
+            Text('到期时间: ${vipInfo.expireDateStr}'),
+            SizedBox(height: 10),
+            if (vipInfo.isLifetime)
+              Text('账户类型: 永久会员', style: TextStyle(color: Colors.orange))
+            else if (vipInfo.isExpired)
+              Text('状态: 已过期', style: TextStyle(color: Colors.red))
+            else
+              Text('剩余天数: ${vipInfo.remainingDays} 天', 
+                style: TextStyle(color: Colors.green)),
+          ] else ...[
+            Text('获取信息失败，请重试'),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('确定'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showRechargeDialogMobile(BuildContext context) {
+  final codeController = TextEditingController();
+  bool isLoading = false;
+
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text('激活码充值'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeController,
+              decoration: InputDecoration(
+                labelText: '激活码',
+                hintText: '请输入激活码',
+              ),
+            ),
+            if (isLoading) 
+              Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: CircularProgressIndicator(),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final code = codeController.text.trim();
+              if (code.isEmpty) {
+                showToast('请输入激活码');
+                return;
+              }
+
+              setState(() => isLoading = true);
+              final result = await VipApi.redeem(code);
+              
+              if (context.mounted) {
+                Navigator.pop(context);
+                showToast(result.success 
+                  ? '激活成功' 
+                  : result.message);
+              }
+            },
+            child: Text('激活'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showRegisterDialogMobile(BuildContext context) {
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
+  final emailController = TextEditingController();
+  final codeController = TextEditingController();
+  bool isLoading = false;
+
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text('注册'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: usernameController,
+                decoration: InputDecoration(
+                  labelText: '用户名',
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: passwordController,
+                decoration: InputDecoration(
+                  labelText: '密码',
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                obscureText: true,
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: '邮箱 (可选)',
+                  prefixIcon: Icon(Icons.email),
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: codeController,
+                decoration: InputDecoration(
+                  labelText: '激活码 (可选)',
+                  prefixIcon: Icon(Icons.vpn_key),
+                ),
+              ),
+              if (isLoading) 
+                Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: CircularProgressIndicator(),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final username = usernameController.text.trim();
+              final password = passwordController.text.trim();
+
+              if (username.isEmpty || password.isEmpty) {
+                showToast('请填写用户名和密码');
+                return;
+              }
+
+              setState(() => isLoading = true);
+              final success = await VipApi.register(
+                username: username,
+                password: password,
+                email: emailController.text.trim(),
+                activationCode: codeController.text.trim(),
+              );
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                if (success) {
+                  showToast('注册成功，请登录');
+                  loginDialog();
+                } else {
+                  showToast('注册失败，请重试');
+                }
+              }
+            },
+            child: Text('注册'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class ScanButton extends StatelessWidget {

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/common/widgets/line_selection_dialog.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
@@ -1653,6 +1654,13 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
                   icon: Icons.dns_outlined,
                   title: 'ID/Relay Server',
                   onTap: () => showServerSettings(gFFI.dialogManager, setState),
+                ),
+              if (!hideServer) divider,
+              if (!hideServer)
+                listTile(
+                  icon: Icons.public_outlined,
+                  title: 'Line Selection',
+                  onTap: () => showLineSelectionDialog(context),
                 ),
               if (!hideProxy && !hideServer) divider,
               if (!hideProxy)
