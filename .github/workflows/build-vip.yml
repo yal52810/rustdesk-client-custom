@@ -1,0 +1,19 @@
+name: Build VIP Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build-flutter:
+    name: Build Flutter
+    uses: ./.github/workflows/flutter-build.yml
+    with:
+      upload-artifact: true
+      upload-tag: ${{ github.ref_name || 'nightly' }}
+    secrets: inherit

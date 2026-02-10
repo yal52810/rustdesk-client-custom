@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/models/vip_model.dart';
+import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
 
 class VipApi {
@@ -28,9 +29,9 @@ class VipApi {
       if (response.statusCode == 200) {
         final body = jsonDecode(decode_http_response(response));
         if (body is List) {
-          return ServerNode.fromJsonList(body);
+          return ServerNode.fromJsonList(body.cast<Map<String, dynamic>>());
         } else if (body is Map && body['list'] != null) {
-          return ServerNode.fromJsonList(body['list']);
+          return ServerNode.fromJsonList((body['list'] as List).cast<Map<String, dynamic>>());
         }
       }
       return [];
@@ -53,7 +54,7 @@ class VipApi {
       if (response.statusCode == 200) {
         final body = jsonDecode(decode_http_response(response));
         if (body is Map && body['error'] == null) {
-          return VipInfo.fromJson(body);
+          return VipInfo.fromJson(body.cast<String, dynamic>());
         }
       }
       return null;

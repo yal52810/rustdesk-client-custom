@@ -715,17 +715,20 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                   leading: Icon(Icons.timer),
                   onPressed: (context) => _showExpireDialogMobile(context),
                 );
-              }),
+              }) as AbstractSettingsTile,
               Obx(() {
                 if (gFFI.userModel.userName.value.isEmpty) {
-                  return SettingsTile.empty();
+                  return SettingsTile(
+                    title: Text(''),
+                    leading: SizedBox.shrink(),
+                  );
                 }
                 return SettingsTile(
                   title: Text('充值'),
                   leading: Icon(Icons.card_giftcard),
                   onPressed: (context) => _showRechargeDialogMobile(context),
                 );
-              }),
+              }) as AbstractSettingsTile,
             ],
           ),
         SettingsSection(title: Text(translate("Settings")), tiles: [
