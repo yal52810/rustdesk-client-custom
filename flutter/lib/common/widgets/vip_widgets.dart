@@ -706,7 +706,8 @@ Future<void> showMobileLineSelectionSheet(BuildContext context) async {
 
                     Navigator.pop(context);
                     showToast('线路已切换，正在重新连接...');
-                    await bind.mainRestartService();
+                    await bind.mainStopService();
+                    await bind.mainStartService();
                   },
                   child: Text('确定'),
                 ),

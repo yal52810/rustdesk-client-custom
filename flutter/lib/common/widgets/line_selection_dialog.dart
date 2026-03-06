@@ -56,7 +56,8 @@ Future<void> showLineSelectionDialog(BuildContext context) async {
 
       showToast('线路已切换，正在重新连接...');
 
-      await bind.mainRestartService();
+      await bind.mainStopService();
+      await bind.mainStartService();
     }
 
     return CustomAlertDialog(
