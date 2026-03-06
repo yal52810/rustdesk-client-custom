@@ -115,7 +115,7 @@ class VipInfo {
       } catch (_) {}
     }
     return VipInfo(
-      username: json['username'] ?? '',
+      username: json['name'] ?? json['username'] ?? '',
       validDays: json['valid_days'] ?? 0,
       firstLoginAt: firstLoginAt,
       deviceLimit: json['device_limit'] ?? 0,
