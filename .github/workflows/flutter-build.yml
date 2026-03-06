@@ -44,6 +44,11 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
+  # Optional custom client compile-time values
+  RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
+  RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
+  RELAY_SERVER: "${{ secrets.RELAY_SERVER }}"
+  API_SERVER: "${{ secrets.API_SERVER }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
@@ -92,6 +97,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Restore bridge files
         uses: actions/download-artifact@master
         with:
@@ -313,6 +323,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Install LLVM and Clang
         uses: rustdesk-org/install-llvm-action-32bit@master
         with:
@@ -463,6 +478,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Install flutter
         uses: subosito/flutter-action@v2
         with:
@@ -588,6 +608,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Import the codesign cert
         if: env.MACOS_P12_BASE64 != null
         uses: apple-actions/import-codesign-certs@v1
@@ -901,6 +926,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Install flutter
         uses: subosito/flutter-action@v2
         with:
@@ -1173,6 +1203,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Install flutter
         uses: subosito/flutter-action@v2
         with:
@@ -1338,6 +1373,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Set Swap Space
         if: ${{ matrix.job.arch == 'x86_64' }}
         uses: pierotofy/set-swap-space@master
@@ -1668,6 +1708,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Modify vcpkg.json for armv7
         if: matrix.job.vcpkg-triplet == 'arm-linux'
         run: |
@@ -1870,6 +1915,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Download Binary
         uses: actions/download-artifact@master
         with:
@@ -1943,6 +1993,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Download Binary
         uses: actions/download-artifact@master
         with:
@@ -2004,6 +2059,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom server config (optional)
+        if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
+        shell: bash
+        run: |
+          python3 .github/scripts/apply_custom_server_config.py
       - name: Prepare env
         run: |
           sudo apt-get update -y

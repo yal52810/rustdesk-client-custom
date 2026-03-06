@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - vip-*
     tags:
       - '*'
   workflow_dispatch:
