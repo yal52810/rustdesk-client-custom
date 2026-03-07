@@ -311,12 +311,12 @@ class _DesktopVipPanelState extends State<_DesktopVipPanel> {
             DialogTextField(
               title: '邮箱 (可选)',
               controller: emailController,
-              prefixIcon: Icons.email,
+              prefixIcon: Icon(Icons.email),
             ),
             DialogTextField(
               title: '激活码 (可选)',
               controller: codeController,
-              prefixIcon: Icons.vpn_key,
+              prefixIcon: Icon(Icons.vpn_key),
             ),
             if (errorMsg != null && usernameController.text.isNotEmpty)
               Padding(
