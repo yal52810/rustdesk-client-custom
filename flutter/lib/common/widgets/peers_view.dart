@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:collection';
 
 import 'package:dynamic_layouts/dynamic_layouts.dart';
@@ -17,6 +17,7 @@ import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import 'peer_card.dart';
+import 'vip_widgets.dart';
 
 typedef PeerFilter = bool Function(Peer peer);
 typedef PeerCardBuilder = Widget Function(Peer peer);
@@ -484,9 +485,22 @@ class FavoritePeersView extends BasePeersView {
 
   @override
   Widget build(BuildContext context) {
-    final widget = super.build(context);
+    final child = super.build(context);
     bind.mainLoadFavPeers();
-    return widget;
+    if (!isDesktop && !isWebDesktop) {
+      return child;
+    }
+    return Obx(() {
+      if (gFFI.userModel.userName.value.isNotEmpty) {
+        return child;
+      }
+      return Column(
+        children: [
+          buildFavoriteLoginEntry(context),
+          Expanded(child: child),
+        ],
+      );
+    });
   }
 }
 

@@ -9,11 +9,11 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/line_selection_dialog.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
+import 'package:flutter_hbb/common/widgets/vip_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
-import 'package:flutter_hbb/mobile/widgets/dialog.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/printer_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
@@ -152,6 +152,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       shouldBeBlocked(_block, canBeBlocked);
+      _enforceNetworkDefaults();
     }
   }
 
@@ -159,6 +160,9 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _enforceNetworkDefaults();
+    });
     _videoConnTimer =
         periodic_immediate(Duration(milliseconds: 1000), () async {
       if (!mounted) {
@@ -166,6 +170,25 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
       }
       _canBeBlocked.value = await canBeBlocked();
     });
+  }
+
+  Future<void> _enforceNetworkDefaults() async {
+    var changed = false;
+    if (bind.mainGetOptionSync(key: kOptionDisableUdp) != 'N') {
+      await bind.mainSetOption(key: kOptionDisableUdp, value: 'N');
+      changed = true;
+    }
+    if (!mainGetLocalBoolOptionSync(kOptionEnableUdpPunch)) {
+      await mainSetLocalBoolOption(kOptionEnableUdpPunch, true);
+      changed = true;
+    }
+    if (!mainGetLocalBoolOptionSync(kOptionEnableIpv6Punch)) {
+      await mainSetLocalBoolOption(kOptionEnableIpv6Punch, true);
+      changed = true;
+    }
+    if (changed && mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -548,12 +571,16 @@ class _GeneralState extends State<_General> {
             'Enable UDP hole punching',
             kOptionEnableUdpPunch,
             isServer: false,
+            enabled: false,
+            fakeValue: true,
           ),
           _OptionCheckBox(
             context,
             'Enable IPv6 P2P connection',
             kOptionEnableIpv6Punch,
             isServer: false,
+            enabled: false,
+            fakeValue: true,
           ),
         ],
       ],
@@ -1560,168 +1587,227 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
         isWeb || bind.mainGetBuildinOption(key: kOptionHideProxySetting) == 'Y';
     final hideWebSocket = isWeb ||
         bind.mainGetBuildinOption(key: kOptionHideWebSocketSetting) == 'Y';
+    final currentLineSupportsWebSocket = selectedNodeSupportsWebSocketSync();
+    final allowWebSocket = mainGetBoolOptionSync(kOptionAllowWebSocket);
 
-    if (hideServer && hideProxy && hideWebSocket) {
-      return Offstage();
-    }
+    final outgoingOnly = bind.isOutgoingOnly();
+    final divider = const Divider(height: 1, indent: 16, endIndent: 16);
 
-    // Helper function to create network setting ListTiles
-    Widget listTile({
+    Widget settingRow({
       required IconData icon,
       required String title,
+      String? subtitle,
       VoidCallback? onTap,
       Widget? trailing,
-      bool showTooltip = false,
-      String tooltipMessage = '',
+      bool showHelp = false,
+      String helpMessage = '',
+      bool enabled = true,
     }) {
-      final titleWidget = showTooltip
-          ? Row(
-              children: [
+      final titleColumn = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: _kContentFontSize,
+                    color: disabledTextColor(context, enabled),
+                  ),
+                ),
+              ),
+              if (showHelp) ...[
+                const SizedBox(width: 6),
                 Tooltip(
-                  waitDuration: Duration(milliseconds: 1000),
-                  message: translate(tooltipMessage),
-                  child: Row(
-                    children: [
-                      Text(
-                        translate(title),
-                        style: TextStyle(fontSize: _kContentFontSize),
-                      ),
-                      SizedBox(width: 5),
-                      Icon(
-                        Icons.help_outline,
-                        size: 14,
-                        color: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.color
-                            ?.withOpacity(0.7),
-                      ),
-                    ],
+                  waitDuration: const Duration(milliseconds: 300),
+                  message: helpMessage,
+                  child: Icon(
+                    Icons.help_outline_rounded,
+                    size: 15,
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.color
+                        ?.withOpacity(0.7),
                   ),
                 ),
               ],
-            )
-          : Text(
-              translate(title),
-              style: TextStyle(fontSize: _kContentFontSize),
-            );
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.color
+                    ?.withOpacity(0.85),
+              ),
+            ),
+          ],
+        ],
+      );
 
       return ListTile(
         leading: Icon(icon, color: _accentColor),
-        title: titleWidget,
-        enabled: !locked,
-        onTap: onTap,
+        title: titleColumn,
+        enabled: enabled && !locked,
+        onTap: enabled && !locked ? onTap : null,
         trailing: trailing,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         minLeadingWidth: 0,
         horizontalTitleGap: 10,
       );
     }
 
-    Widget switchWidget(IconData icon, String title, String tooltipMessage,
-            String optionKey) =>
-        listTile(
-          icon: icon,
-          title: title,
-          showTooltip: true,
-          tooltipMessage: tooltipMessage,
-          trailing: Switch(
-            value: mainGetBoolOptionSync(optionKey),
-            onChanged: locked || isOptionFixed(optionKey)
-                ? null
-                : (value) {
-                    mainSetBoolOption(optionKey, value);
+    final staticRows = <Widget>[];
+    void addStaticRow(Widget row) {
+      if (staticRows.isNotEmpty) {
+        staticRows.add(divider);
+      }
+      staticRows.add(row);
+    }
+
+    if (!hideServer) {
+      addStaticRow(
+        settingRow(
+          icon: Icons.dns_outlined,
+          title: '\u7ebf\u8def\u9009\u62e9',
+          onTap: () async {
+            await showLineSelectionDialog(context);
+            if (mounted) {
+              setState(() {});
+            }
+          },
+        ),
+      );
+    }
+    if (!hideProxy) {
+      addStaticRow(
+        settingRow(
+          icon: Icons.alt_route_rounded,
+          title: 'Socks5/Http(s) \u4ee3\u7406',
+          onTap: changeSocks5Proxy,
+        ),
+      );
+    }
+    if (!hideWebSocket) {
+      addStaticRow(
+        settingRow(
+          icon: Icons.web_asset_outlined,
+          title: '\u4f7f\u7528 WebSocket',
+          subtitle: currentLineSupportsWebSocket
+              ? null
+              : '\u4ec5\u516c\u53f8/\u6821\u56ed\u7f51\u7edc\u7ebf\u8def\u53ef\u7528',
+          enabled: currentLineSupportsWebSocket,
+          onTap: currentLineSupportsWebSocket
+              ? () async {
+                  await mainSetBoolOption(
+                    kOptionAllowWebSocket,
+                    !allowWebSocket,
+                  );
+                  if (mounted) {
                     setState(() {});
-                  },
-          ),
-        );
-
-    final outgoingOnly = bind.isOutgoingOnly();
-
-    final divider = const Divider(height: 1, indent: 16, endIndent: 16);
-    return _Card(
-      title: 'Network',
-      children: [
-        Container(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!hideServer)
-                listTile(
-                  icon: Icons.dns_outlined,
-                  title: 'ID/Relay Server',
-                  onTap: () => showServerSettings(gFFI.dialogManager, setState),
-                ),
-              if (!hideServer) divider,
-              if (!hideServer)
-                listTile(
-                  icon: Icons.public_outlined,
-                  title: 'Line Selection',
-                  onTap: () => showLineSelectionDialog(context),
-                ),
-              if (!hideProxy && !hideServer) divider,
-              if (!hideProxy)
-                listTile(
-                  icon: Icons.network_ping_outlined,
-                  title: 'Socks5/Http(s) Proxy',
-                  onTap: changeSocks5Proxy,
-                ),
-              if (!hideWebSocket && (!hideServer || !hideProxy)) divider,
-              if (!hideWebSocket)
-                switchWidget(
-                    Icons.web_asset_outlined,
-                    'Use WebSocket',
-                    '${translate('websocket_tip')}\n\n${translate('server-oss-not-support-tip')}',
-                    kOptionAllowWebSocket),
-              if (!isWeb)
-                futureBuilder(
-                  future: bind.mainIsUsingPublicServer(),
-                  hasData: (isUsingPublicServer) {
-                    if (isUsingPublicServer) {
-                      return Offstage();
-                    } else {
-                      return Column(
-                        children: [
-                          if (!hideServer || !hideProxy || !hideWebSocket)
-                            divider,
-                          switchWidget(
-                              Icons.no_encryption_outlined,
-                              'Allow insecure TLS fallback',
-                              'allow-insecure-tls-fallback-tip',
-                              kOptionAllowInsecureTLSFallback),
-                          if (!outgoingOnly) divider,
-                          if (!outgoingOnly)
-                            listTile(
-                              icon: Icons.lan_outlined,
-                              title: 'Disable UDP',
-                              showTooltip: true,
-                              tooltipMessage:
-                                  '${translate('disable-udp-tip')}\n\n${translate('server-oss-not-support-tip')}',
-                              trailing: Switch(
-                                value: bind.mainGetOptionSync(
-                                        key: kOptionDisableUdp) ==
-                                    'Y',
-                                onChanged:
-                                    locked || isOptionFixed(kOptionDisableUdp)
-                                        ? null
-                                        : (value) async {
-                                            await bind.mainSetOption(
-                                                key: kOptionDisableUdp,
-                                                value: value ? 'Y' : 'N');
-                                            setState(() {});
-                                          },
-                              ),
-                            ),
-                        ],
-                      );
+                  }
+                }
+              : null,
+          trailing: Switch(
+            value: currentLineSupportsWebSocket && allowWebSocket,
+            onChanged: locked || !currentLineSupportsWebSocket
+                ? null
+                : (value) async {
+                    await mainSetBoolOption(kOptionAllowWebSocket, value);
+                    if (mounted) {
+                      setState(() {});
                     }
                   },
-                ),
-            ],
           ),
+        ),
+      );
+    }
+
+    return _Card(
+      title: '\u7ebf\u8def\u9009\u62e9',
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...staticRows,
+            if (!isWeb)
+              futureBuilder(
+                future: bind.mainIsUsingPublicServer(),
+                hasData: (isUsingPublicServer) {
+                  if (isUsingPublicServer) {
+                    return const Offstage();
+                  }
+
+                  final secureRows = <Widget>[];
+                  void addSecureRow(Widget row) {
+                    if (secureRows.isNotEmpty) {
+                      secureRows.add(divider);
+                    }
+                    secureRows.add(row);
+                  }
+
+                  addSecureRow(
+                    settingRow(
+                      icon: Icons.no_encryption_outlined,
+                      title:
+                          '\u5141\u8bb8\u56de\u9000\u5230\u4e0d\u5b89\u5168\u7684 TLS \u8fde\u63a5',
+                      showHelp: true,
+                      helpMessage: translate('allow-insecure-tls-fallback-tip'),
+                      trailing: Switch(
+                        value: mainGetBoolOptionSync(
+                          kOptionAllowInsecureTLSFallback,
+                        ),
+                        onChanged: locked ||
+                                isOptionFixed(kOptionAllowInsecureTLSFallback)
+                            ? null
+                            : (value) async {
+                                await mainSetBoolOption(
+                                  kOptionAllowInsecureTLSFallback,
+                                  value,
+                                );
+                                setState(() {});
+                              },
+                      ),
+                    ),
+                  );
+
+                  if (!outgoingOnly) {
+                    addSecureRow(
+                      settingRow(
+                        icon: Icons.hub_outlined,
+                        title: '\u7981\u7528 UDP',
+                        showHelp: true,
+                        helpMessage:
+                            '${translate('disable-udp-tip')}\n\n${translate('server-oss-not-support-tip')}',
+                        trailing: Switch(
+                          value: false,
+                          onChanged: null,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (secureRows.isEmpty) {
+                    return const Offstage();
+                  }
+
+                  return Column(
+                    children: [
+                      if (staticRows.isNotEmpty) divider,
+                      ...secureRows,
+                    ],
+                  );
+                },
+              ),
+          ],
         ),
       ],
     );
@@ -2017,7 +2103,7 @@ class _AccountState extends State<_Account> {
     return ListView(
       controller: scrollController,
       children: [
-        _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        buildDesktopVipAccountCard(context),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
@@ -2369,7 +2455,7 @@ class _AboutState extends State<_About> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
+                            'Copyright 漏 ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
                             style: const TextStyle(color: Colors.white),
                           ),
                           Text(

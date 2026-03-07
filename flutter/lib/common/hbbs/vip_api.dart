@@ -1,8 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
-import 'package:flutter_hbb/models/vip_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/vip_model.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
 
 class VipApi {
@@ -31,7 +32,9 @@ class VipApi {
         if (body is List) {
           return ServerNode.fromJsonList(body.cast<Map<String, dynamic>>());
         } else if (body is Map && body['list'] != null) {
-          return ServerNode.fromJsonList((body['list'] as List).cast<Map<String, dynamic>>());
+          return ServerNode.fromJsonList(
+            (body['list'] as List).cast<Map<String, dynamic>>(),
+          );
         }
       }
       return [];
@@ -68,7 +71,7 @@ class VipApi {
     try {
       final url = await _apiServer;
       if (url.isEmpty) {
-        return RedeemResult(success: false, message: 'API服务器未配置');
+        return RedeemResult(success: false, message: 'API 服务器未配置');
       }
 
       final response = await http.post(
@@ -78,19 +81,18 @@ class VipApi {
       );
 
       final body = jsonDecode(decode_http_response(response));
-      
       if (response.statusCode == 200 && body['error'] == null) {
         return RedeemResult(
           success: true,
-          message: '激活成功',
+          message: body['message'] ?? '充值成功',
           addedDays: body['valid_days'] ?? body['added_days'],
         );
-      } else {
-        return RedeemResult(
-          success: false,
-          message: body['error'] ?? body['message'] ?? '激活失败',
-        );
       }
+
+      return RedeemResult(
+        success: false,
+        message: body['error'] ?? body['message'] ?? '充值失败',
+      );
     } catch (e) {
       debugPrint('redeem error: $e');
       return RedeemResult(success: false, message: '网络错误: $e');
@@ -132,6 +134,66 @@ class VipApi {
     } catch (e) {
       debugPrint('register error: $e');
       return false;
+    }
+  }
+
+  static Future<ActionResult> sendPasswordResetCode({
+    required String email,
+  }) async {
+    try {
+      final url = await _apiServer;
+      if (url.isEmpty) {
+        return ActionResult(success: false, message: 'API 服务器未配置');
+      }
+
+      final response = await http.post(
+        Uri.parse('$url/api/password/send-reset-code'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+        }),
+      );
+
+      final body = jsonDecode(decode_http_response(response));
+      return ActionResult(
+        success: response.statusCode == 200 && body['error'] == null,
+        message: body['message'] ?? body['error'] ?? '',
+      );
+    } catch (e) {
+      debugPrint('sendPasswordResetCode error: $e');
+      return ActionResult(success: false, message: '网络错误: $e');
+    }
+  }
+
+  static Future<ActionResult> resetPasswordByEmailCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      final url = await _apiServer;
+      if (url.isEmpty) {
+        return ActionResult(success: false, message: 'API 服务器未配置');
+      }
+
+      final response = await http.post(
+        Uri.parse('$url/api/password/reset'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'code': code.trim(),
+          'new_password': newPassword,
+        }),
+      );
+
+      final body = jsonDecode(decode_http_response(response));
+      return ActionResult(
+        success: response.statusCode == 200 && body['error'] == null,
+        message: body['message'] ?? body['error'] ?? '',
+      );
+    } catch (e) {
+      debugPrint('resetPasswordByEmailCode error: $e');
+      return ActionResult(success: false, message: '网络错误: $e');
     }
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/hbbs/vip_api.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/user_model.dart';
@@ -325,6 +326,7 @@ class LoginWidgetUserPass extends StatelessWidget {
   final bool isInProgress;
   final RxString curOP;
   final Function() onLogin;
+  final Function()? onForgotPassword;
   final FocusNode? userFocusNode;
   const LoginWidgetUserPass({
     Key? key,
@@ -336,6 +338,7 @@ class LoginWidgetUserPass extends StatelessWidget {
     required this.isInProgress,
     required this.curOP,
     required this.onLogin,
+    this.onForgotPassword,
   }) : super(key: key);
 
   @override
@@ -357,6 +360,13 @@ class LoginWidgetUserPass extends StatelessWidget {
               autoFocus: false,
               reRequestFocus: true,
               errorText: passMsg,
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: isInProgress ? null : onForgotPassword,
+                child: const Text('\u627e\u56de\u5bc6\u7801'),
+              ),
             ),
             // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress) const LinearProgressIndicator(),
@@ -603,6 +613,7 @@ Future<bool?> loginDialog() async {
             isInProgress: isInProgress,
             curOP: curOP,
             onLogin: onLogin,
+            onForgotPassword: showPasswordResetDialog,
             userFocusNode: userFocusNode,
           ),
           thirdAuthWidget(),
@@ -618,6 +629,211 @@ Future<bool?> loginDialog() async {
   }
 
   return res;
+}
+
+Future<void> showPasswordResetDialog() async {
+  final email = TextEditingController();
+  final code = TextEditingController();
+  final newPassword = TextEditingController();
+
+  String? errorText;
+  String? infoText;
+  bool isSending = false;
+  bool isSubmitting = false;
+
+  await gFFI.dialogManager.show<void>((setState, close, context) {
+    void closeDialog([dynamic _]) {
+      close();
+    }
+
+    bool validateEmailFormat(String value) {
+      return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+    }
+
+    Future<void> sendCode() async {
+      final emailValue = email.text.trim();
+
+      if (emailValue.isEmpty) {
+        setState(() {
+          errorText = '\u8bf7\u8f93\u5165\u90ae\u7bb1';
+          infoText = null;
+        });
+        return;
+      }
+      if (!validateEmailFormat(emailValue)) {
+        setState(() {
+          errorText = '\u90ae\u7bb1\u683c\u5f0f\u4e0d\u6b63\u786e';
+          infoText = null;
+        });
+        return;
+      }
+
+      setState(() {
+        errorText = null;
+        infoText = null;
+        isSending = true;
+      });
+
+      final result = await VipApi.sendPasswordResetCode(
+        email: emailValue,
+      );
+
+      if (result.success) {
+        setState(() {
+          isSending = false;
+          errorText = null;
+          infoText = result.message.isEmpty
+              ? '\u9a8c\u8bc1\u7801\u5df2\u53d1\u9001\u5230\u90ae\u7bb1'
+              : result.message;
+        });
+        return;
+      }
+
+      setState(() {
+        isSending = false;
+        errorText = result.message.isEmpty
+            ? '\u53d1\u9001\u627e\u56de\u9a8c\u8bc1\u7801\u5931\u8d25'
+            : result.message;
+        infoText = null;
+      });
+    }
+
+    Future<void> submit() async {
+      final emailValue = email.text.trim();
+      final codeValue = code.text.trim();
+      final newPasswordValue = newPassword.text.trim();
+
+      if (emailValue.isEmpty || codeValue.isEmpty || newPasswordValue.isEmpty) {
+        setState(() {
+          errorText =
+              '\u8bf7\u5b8c\u6574\u586b\u5199\u90ae\u7bb1\u3001\u9a8c\u8bc1\u7801\u548c\u65b0\u5bc6\u7801';
+          infoText = null;
+        });
+        return;
+      }
+      if (!validateEmailFormat(emailValue)) {
+        setState(() {
+          errorText = '\u90ae\u7bb1\u683c\u5f0f\u4e0d\u6b63\u786e';
+          infoText = null;
+        });
+        return;
+      }
+      if (newPasswordValue.length < 6 || newPasswordValue.length > 18) {
+        setState(() {
+          errorText = '\u65b0\u5bc6\u7801\u957f\u5ea6\u9700\u4e3a 6-18 \u4f4d';
+          infoText = null;
+        });
+        return;
+      }
+
+      setState(() {
+        errorText = null;
+        infoText = null;
+        isSubmitting = true;
+      });
+
+      final result = await VipApi.resetPasswordByEmailCode(
+        email: emailValue,
+        code: codeValue,
+        newPassword: newPasswordValue,
+      );
+
+      setState(() => isSubmitting = false);
+
+      if (result.success) {
+        close();
+        showToast(result.message.isEmpty
+            ? '\u5bc6\u7801\u5df2\u91cd\u7f6e\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55'
+            : result.message);
+        return;
+      }
+
+      setState(() {
+        errorText = result.message.isEmpty
+            ? '\u91cd\u7f6e\u5bc6\u7801\u5931\u8d25'
+            : result.message;
+        infoText = null;
+      });
+    }
+
+    return CustomAlertDialog(
+      title: const Text('\u627e\u56de\u5bc6\u7801'),
+      contentBoxConstraints: const BoxConstraints(maxWidth: 360),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '\u8f93\u5165\u90ae\u7bb1\u3001\u9a8c\u8bc1\u7801\u548c\u65b0\u5bc6\u7801\u5373\u53ef\u627e\u56de\u3002',
+              style: TextStyle(
+                color: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.color
+                    ?.withOpacity(0.75),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          DialogTextField(
+            title: '\u90ae\u7bb1',
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            prefixIcon: const Icon(Icons.email_outlined),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton(
+              onPressed: (isSending || isSubmitting) ? null : sendCode,
+              child: const Text('\u53d1\u9001\u9a8c\u8bc1\u7801'),
+            ),
+          ),
+          DialogTextField(
+            title: '\u9a8c\u8bc1\u7801',
+            controller: code,
+            prefixIcon: const Icon(Icons.mark_email_read_outlined),
+            maxLength: 6,
+          ),
+          PasswordWidget(
+            controller: newPassword,
+            autoFocus: false,
+            reRequestFocus: true,
+            title: '\u65b0\u5bc6\u7801',
+            hintText:
+                '\u8bf7\u8f93\u5165\u65b0\u5bc6\u7801\uff086-18\u4f4d\uff09',
+          ),
+          if (infoText != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                infoText!,
+                style: const TextStyle(color: Colors.green),
+              ),
+            ),
+          if (errorText != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          if (isSending || isSubmitting) const LinearProgressIndicator(),
+        ],
+      ),
+      actions: [
+        dialogButton('\u53d6\u6d88', onPressed: closeDialog, isOutline: true),
+        dialogButton(
+          '\u91cd\u7f6e\u5bc6\u7801',
+          onPressed: isSubmitting ? null : submit,
+        ),
+      ],
+      onCancel: closeDialog,
+      onSubmit: isSubmitting ? null : submit,
+    );
+  });
 }
 
 Future<bool?> verificationCodeDialog(
@@ -696,22 +912,6 @@ Future<bool?> verificationCodeDialog(
                 ).workaroundFreezeLinuxMint()),
             isEmailVerification ? const SizedBox(height: 8) : const Offstage(),
             codeField,
-            /*
-            CheckboxListTile(
-              contentPadding: const EdgeInsets.all(0),
-              dense: true,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: Row(children: [
-                Expanded(child: Text(translate("Trust this device")))
-              ]),
-              value: trustThisDevice,
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() => trustThisDevice = !trustThisDevice);
-              },
-            ),
-            */
-            // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress) const LinearProgressIndicator(),
           ],
         ),
@@ -722,8 +922,6 @@ Future<bool?> verificationCodeDialog(
           dialogButton("Verify", onPressed: getOnSubmit()),
         ]);
   });
-  // For verification code, desktop update other models in login dialog, mobile need to close login dialog first,
-  // otherwise the soft keyboard will jump out on each key press, so mobile update in verification code dialog.
   if (isMobile && res == true) {
     await UserModel.updateOtherModels();
   }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class ServerNode {
   int id;
   String name;
@@ -12,6 +10,7 @@ class ServerNode {
   bool isDefault;
   int priority;
   String description;
+  bool supportsWebSocket;
 
   ServerNode({
     required this.id,
@@ -25,6 +24,7 @@ class ServerNode {
     this.isDefault = false,
     this.priority = 0,
     this.description = '',
+    this.supportsWebSocket = false,
   });
 
   String get statusText => isOnline ? '不限速' : '离线';
@@ -42,6 +42,9 @@ class ServerNode {
       isDefault: json['is_default'] ?? false,
       priority: json['priority'] ?? 0,
       description: json['description'] ?? '',
+      supportsWebSocket: json['supports_websocket'] == true ||
+          json['supports_ws'] == true ||
+          json['allow_websocket'] == true,
     );
   }
 
@@ -58,6 +61,7 @@ class ServerNode {
       'is_default': isDefault,
       'priority': priority,
       'description': description,
+      'supports_websocket': supportsWebSocket,
     };
   }
 
@@ -109,7 +113,8 @@ class VipInfo {
 
   factory VipInfo.fromJson(Map<String, dynamic> json) {
     DateTime? firstLoginAt;
-    if (json['first_login_at'] != null && json['first_login_at'].toString().isNotEmpty) {
+    if (json['first_login_at'] != null &&
+        json['first_login_at'].toString().isNotEmpty) {
       try {
         firstLoginAt = DateTime.parse(json['first_login_at'].toString());
       } catch (_) {}
@@ -148,6 +153,23 @@ class RedeemResult {
       success: json['success'] ?? false,
       message: json['message'] ?? json['error'] ?? '',
       addedDays: json['added_days'] ?? json['valid_days'],
+    );
+  }
+}
+
+class ActionResult {
+  bool success;
+  String message;
+
+  ActionResult({
+    required this.success,
+    this.message = '',
+  });
+
+  factory ActionResult.fromJson(Map<String, dynamic> json) {
+    return ActionResult(
+      success: json['success'] == true && json['error'] == null,
+      message: json['message'] ?? json['error'] ?? '',
     );
   }
 }

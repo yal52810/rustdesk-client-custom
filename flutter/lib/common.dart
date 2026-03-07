@@ -1624,6 +1624,11 @@ bool mainGetLocalBoolOptionSync(String key) {
   return option2bool(key, bind.mainGetLocalOption(key: key));
 }
 
+bool selectedNodeSupportsWebSocketSync() {
+  return bind.mainGetLocalOption(key: kOptionSelectedNodeSupportsWebSocket) ==
+      'Y';
+}
+
 bool mainGetPeerBoolOptionSync(String id, String key) {
   return option2bool(key, bind.mainGetPeerOptionSync(id: id, key: key));
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/widgets/line_selection_dialog.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/common/widgets/vip_widgets.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
@@ -13,13 +14,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common.dart';
-import '../../common/hbbs/vip_api.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 import '../../consts.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
-import '../widgets/dialog.dart';
 import 'home_page.dart';
 import 'scan_page.dart';
 
@@ -157,6 +156,13 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       var update = false;
 
+      if (await _enforceNetworkDefaults()) {
+        update = true;
+      }
+      if (_refreshWebSocketState()) {
+        update = true;
+      }
+
       if (_hasIgnoreBattery) {
         if (await checkAndUpdateIgnoreBatteryStatus()) {
           update = true;
@@ -242,7 +248,9 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
       () async {
         final ibs = await checkAndUpdateIgnoreBatteryStatus();
         final sob = await checkAndUpdateStartOnBoot();
-        if (ibs || sob) {
+        final network = await _enforceNetworkDefaults();
+        final websocket = _refreshWebSocketState();
+        if (ibs || sob || network || websocket) {
           setState(() {});
         }
       }();
@@ -270,6 +278,47 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     } else {
       return false;
     }
+  }
+
+  Future<bool> _enforceNetworkDefaults() async {
+    var update = false;
+
+    if (bind.mainGetOptionSync(key: kOptionDisableUdp) != 'N') {
+      await bind.mainSetOption(key: kOptionDisableUdp, value: 'N');
+      update = true;
+    }
+    if (!mainGetLocalBoolOptionSync(kOptionEnableUdpPunch)) {
+      await mainSetLocalBoolOption(kOptionEnableUdpPunch, true);
+      update = true;
+    }
+    if (!mainGetLocalBoolOptionSync(kOptionEnableIpv6Punch)) {
+      await mainSetLocalBoolOption(kOptionEnableIpv6Punch, true);
+      update = true;
+    }
+
+    if (_disableUdp != false) {
+      _disableUdp = false;
+      update = true;
+    }
+    if (_enableUdpPunch != true) {
+      _enableUdpPunch = true;
+      update = true;
+    }
+    if (_enableIpv6Punch != true) {
+      _enableIpv6Punch = true;
+      update = true;
+    }
+
+    return update;
+  }
+
+  bool _refreshWebSocketState() {
+    final allowWebSocket = mainGetBoolOptionSync(kOptionAllowWebSocket);
+    if (_allowWebSocket != allowWebSocket) {
+      _allowWebSocket = allowWebSocket;
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -619,7 +668,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
         onToggle: (bool v) async {
           await mainSetLocalBoolOption(kOptionEnableShowTerminalExtraKeys, v);
           final newValue =
-            mainGetLocalBoolOptionSync(kOptionEnableShowTerminalExtraKeys);
+              mainGetLocalBoolOptionSync(kOptionEnableShowTerminalExtraKeys);
           setState(() {
             _showTerminalExtraKeys = newValue;
           });
@@ -680,18 +729,19 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     final disabledSettings = bind.isDisableSettings();
     final hideSecuritySettings =
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) == 'Y';
+    final currentLineSupportsWebSocket = selectedNodeSupportsWebSocketSync();
     final settings = SettingsList(
       sections: [
         customClientSection,
         if (!bind.isDisableAccount())
           SettingsSection(
-            title: Text(translate('Account')),
+            title: const Text('\u8d26\u6237'),
             tiles: [
               SettingsTile(
                 title: Obx(() => Text(gFFI.userModel.userName.value.isEmpty
-                    ? translate('Login')
-                    : '${translate('Logout')} (${gFFI.userModel.userName.value})')),
-                leading: Icon(Icons.person),
+                    ? '\u767b\u5f55'
+                    : '\u767b\u51fa (${gFFI.userModel.userName.value})')),
+                leading: const Icon(Icons.person_outline_rounded),
                 onPressed: (context) {
                   if (gFFI.userModel.userName.value.isEmpty) {
                     loginDialog();
@@ -700,33 +750,27 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                   }
                 },
               ),
+              SettingsTile(
+                title: const Text('\u6ce8\u518c'),
+                leading: const Icon(Icons.person_add_alt_rounded),
+                onPressed: (context) => showVipRegisterDialog(context),
+              ),
+              SettingsTile(
+                title: const Text('\u67e5\u8be2\u5230\u671f\u65f6\u95f4'),
+                leading: const Icon(Icons.schedule_rounded),
+                onPressed: (context) => showVipExpireDialog(context),
+              ),
               Obx(() {
                 if (gFFI.userModel.userName.value.isEmpty) {
                   return SettingsTile(
-                    title: Text('注册'),
-                    leading: Icon(Icons.app_registration),
-                    onPressed: (context) {
-                      _showRegisterDialogMobile(context);
-                    },
+                    title: const Text(''),
+                    leading: const SizedBox.shrink(),
                   );
                 }
                 return SettingsTile(
-                  title: Text('查询到期时间'),
-                  leading: Icon(Icons.timer),
-                  onPressed: (context) => _showExpireDialogMobile(context),
-                );
-              }) as AbstractSettingsTile,
-              Obx(() {
-                if (gFFI.userModel.userName.value.isEmpty) {
-                  return SettingsTile(
-                    title: Text(''),
-                    leading: SizedBox.shrink(),
-                  );
-                }
-                return SettingsTile(
-                  title: Text('充值'),
-                  leading: Icon(Icons.card_giftcard),
-                  onPressed: (context) => _showRechargeDialogMobile(context),
+                  title: const Text('\u8d26\u53f7\u5145\u503c'),
+                  leading: const Icon(Icons.payment_rounded),
+                  onPressed: (context) => showVipRechargeDialog(context),
                 );
               }) as AbstractSettingsTile,
             ],
@@ -734,46 +778,41 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
         SettingsSection(title: Text(translate("Settings")), tiles: [
           if (!disabledSettings && !_hideNetwork && !_hideServer)
             SettingsTile(
-                title: Text(translate('ID/Relay Server')),
-                leading: Icon(Icons.cloud),
-                onPressed: (context) {
-                  showServerSettings(gFFI.dialogManager, (callback) async {
-                    _isUsingPublicServer = await bind.mainIsUsingPublicServer();
-                    setState(callback);
+                title: const Text('\u7ebf\u8def\u9009\u62e9'),
+                leading: const Icon(Icons.dns_outlined),
+                onPressed: (context) async {
+                  await showMobileLineSelectionSheet(context);
+                  if (!mounted) return;
+                  setState(() {
+                    _allowWebSocket =
+                        mainGetBoolOptionSync(kOptionAllowWebSocket);
                   });
-                }),
-          if (!disabledSettings && !_hideNetwork && !_hideServer)
-            SettingsTile(
-                title: Text('线路选择'),
-                leading: Icon(Icons.public),
-                onPressed: (context) {
-                  showMobileLineSelectionSheet(context);
                 }),
           if (!_hideNetwork && !_hideProxy)
             SettingsTile(
-                title: Text(translate('Socks5/Http(s) Proxy')),
-                leading: Icon(Icons.network_ping),
+                title: const Text('Socks5/Http(s) \u4ee3\u7406'),
+                leading: const Icon(Icons.alt_route_rounded),
                 onPressed: (context) {
                   changeSocks5Proxy();
                 }),
           if (!disabledSettings && !_hideNetwork && !_hideWebSocket)
             SettingsTile.switchTile(
-              title: Text(translate('Use WebSocket')),
-              initialValue: _allowWebSocket,
-              onToggle: isOptionFixed(kOptionAllowWebSocket)
-                  ? null
-                  : (v) async {
-                      await mainSetBoolOption(kOptionAllowWebSocket, v);
-                      final newValue =
-                          await mainGetBoolOption(kOptionAllowWebSocket);
-                      setState(() {
-                        _allowWebSocket = newValue;
-                      });
-                    },
+              title: const Text('\u4f7f\u7528 WebSocket'),
+              initialValue:
+                  currentLineSupportsWebSocket ? _allowWebSocket : false,
+              onToggle: currentLineSupportsWebSocket
+                  ? (value) async {
+                      await mainSetBoolOption(kOptionAllowWebSocket, value);
+                      setState(() => _allowWebSocket =
+                          mainGetBoolOptionSync(kOptionAllowWebSocket));
+                    }
+                  : null,
             ),
           if (!_isUsingPublicServer)
             SettingsTile.switchTile(
-              title: Text(translate('Allow insecure TLS fallback')),
+              title: const Text(
+                '\u5141\u8bb8\u56de\u9000\u5230\u4e0d\u5b89\u5168\u7684 TLS \u8fde\u63a5',
+              ),
               initialValue: _allowInsecureTlsFallback,
               onToggle: isOptionFixed(kOptionAllowInsecureTLSFallback)
                   ? null
@@ -789,45 +828,21 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             ),
           if (isAndroid && !outgoingOnly && !_isUsingPublicServer)
             SettingsTile.switchTile(
-              title: Text(translate('Disable UDP')),
-              initialValue: _disableUdp,
-              onToggle: isOptionFixed(kOptionDisableUdp)
-                  ? null
-                  : (v) async {
-                      await bind.mainSetOption(
-                          key: kOptionDisableUdp, value: v ? 'Y' : 'N');
-                      final newValue =
-                          bind.mainGetOptionSync(key: kOptionDisableUdp) == 'Y';
-                      setState(() {
-                        _disableUdp = newValue;
-                      });
-                    },
+              title: const Text('\u7981\u7528 UDP'),
+              initialValue: false,
+              onToggle: null,
             ),
           if (!incomingOnly)
             SettingsTile.switchTile(
               title: Text(translate('Enable UDP hole punching')),
-              initialValue: _enableUdpPunch,
-              onToggle: (v) async {
-                await mainSetLocalBoolOption(kOptionEnableUdpPunch, v);
-                final newValue =
-                    mainGetLocalBoolOptionSync(kOptionEnableUdpPunch);
-                setState(() {
-                  _enableUdpPunch = newValue;
-                });
-              },
+              initialValue: true,
+              onToggle: null,
             ),
           if (!incomingOnly)
             SettingsTile.switchTile(
               title: Text(translate('Enable IPv6 P2P connection')),
-              initialValue: _enableIpv6Punch,
-              onToggle: (v) async {
-                await mainSetLocalBoolOption(kOptionEnableIpv6Punch, v);
-                final newValue =
-                    mainGetLocalBoolOptionSync(kOptionEnableIpv6Punch);
-                setState(() {
-                  _enableIpv6Punch = newValue;
-                });
-              },
+              initialValue: true,
+              onToggle: null,
             ),
           SettingsTile(
               title: Text(translate('Language')),
@@ -867,10 +882,12 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             ),
           if (!incomingOnly)
             SettingsTile.switchTile(
-              title: Text(translate('keep-awake-during-outgoing-sessions-label')),
+              title:
+                  Text(translate('keep-awake-during-outgoing-sessions-label')),
               initialValue: _preventSleepWhileConnected,
               onToggle: (v) async {
-                await mainSetLocalBoolOption(kOptionKeepAwakeDuringOutgoingSessions, v);
+                await mainSetLocalBoolOption(
+                    kOptionKeepAwakeDuringOutgoingSessions, v);
                 setState(() {
                   _preventSleepWhileConnected = v;
                 });
@@ -1130,199 +1147,6 @@ void showAbout(OverlayDialogManager dialogManager) {
       actions: [],
     );
   }, clickMaskDismiss: true, backDismiss: true);
-}
-
-void _showExpireDialogMobile(BuildContext context) async {
-  final vipInfo = await VipApi.getVipInfo();
-  if (!context.mounted) return;
-  
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('服务到期时间'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (vipInfo != null) ...[
-            Text('用户名: ${vipInfo.username}'),
-            SizedBox(height: 10),
-            Text('到期时间: ${vipInfo.expireDateStr}'),
-            SizedBox(height: 10),
-            if (vipInfo.isLifetime)
-              Text('账户类型: 永久会员', style: TextStyle(color: Colors.orange))
-            else if (vipInfo.isExpired)
-              Text('状态: 已过期', style: TextStyle(color: Colors.red))
-            else
-              Text('剩余天数: ${vipInfo.remainingDays} 天', 
-                style: TextStyle(color: Colors.green)),
-          ] else ...[
-            Text('获取信息失败，请重试'),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('确定'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showRechargeDialogMobile(BuildContext context) {
-  final codeController = TextEditingController();
-  bool isLoading = false;
-
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text('激活码充值'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: codeController,
-              decoration: InputDecoration(
-                labelText: '激活码',
-                hintText: '请输入激活码',
-              ),
-            ),
-            if (isLoading) 
-              Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: CircularProgressIndicator(),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final code = codeController.text.trim();
-              if (code.isEmpty) {
-                showToast('请输入激活码');
-                return;
-              }
-
-              setState(() => isLoading = true);
-              final result = await VipApi.redeem(code);
-              
-              if (context.mounted) {
-                Navigator.pop(context);
-                showToast(result.success 
-                  ? '激活成功' 
-                  : result.message);
-              }
-            },
-            child: Text('激活'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-void _showRegisterDialogMobile(BuildContext context) {
-  final usernameController = TextEditingController();
-  final passwordController = TextEditingController();
-  final emailController = TextEditingController();
-  final codeController = TextEditingController();
-  bool isLoading = false;
-
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text('注册'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: usernameController,
-                decoration: InputDecoration(
-                  labelText: '用户名',
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: passwordController,
-                decoration: InputDecoration(
-                  labelText: '密码',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                obscureText: true,
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: '邮箱 (可选)',
-                  prefixIcon: Icon(Icons.email),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: codeController,
-                decoration: InputDecoration(
-                  labelText: '激活码 (可选)',
-                  prefixIcon: Icon(Icons.vpn_key),
-                ),
-              ),
-              if (isLoading) 
-                Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: CircularProgressIndicator(),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final username = usernameController.text.trim();
-              final password = passwordController.text.trim();
-
-              if (username.isEmpty || password.isEmpty) {
-                showToast('请填写用户名和密码');
-                return;
-              }
-
-              setState(() => isLoading = true);
-              final success = await VipApi.register(
-                username: username,
-                password: password,
-                email: emailController.text.trim(),
-                activationCode: codeController.text.trim(),
-              );
-
-              if (context.mounted) {
-                Navigator.pop(context);
-                if (success) {
-                  showToast('注册成功，请登录');
-                  loginDialog();
-                } else {
-                  showToast('注册失败，请重试');
-                }
-              }
-            },
-            child: Text('注册'),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class ScanButton extends StatelessWidget {

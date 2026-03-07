@@ -170,6 +170,8 @@ const String kOptionAllowWebSocket = "allow-websocket";
 const String kOptionAllowInsecureTLSFallback = "allow-insecure-tls-fallback";
 const String kOptionDisableUdp = "disable-udp";
 const String kOptionEnableFlutterHttpOnRust = "enable-flutter-http-on-rust";
+const String kOptionSelectedNodeSupportsWebSocket =
+    "selected-node-supports-websocket";
 
 // builtin options
 const String kOptionHideServerSetting = "hide-server-settings";
