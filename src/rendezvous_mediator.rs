@@ -491,7 +491,7 @@ impl RendezvousMediator {
         }
         let peer_addr_v6 = hbb_common::AddrMangle::decode(&fla.socket_addr_v6);
         let relay_server = self.get_relay_server(fla.relay_server.clone());
-        let relay = use_ws() || Config::is_proxy();
+        let relay = use_ws() || Config::is_proxy() || fla.relay_use_wss;
         let mut socket_addr_v6 = Default::default();
         if peer_addr_v6.port() > 0 && !relay {
             socket_addr_v6 = start_ipv6(
@@ -577,7 +577,7 @@ impl RendezvousMediator {
             return Ok(());
         }
         let peer_addr_v6 = hbb_common::AddrMangle::decode(&ph.socket_addr_v6);
-        let relay = use_ws() || Config::is_proxy() || ph.force_relay;
+        let relay = use_ws() || Config::is_proxy() || ph.force_relay || ph.relay_use_wss;
         let mut socket_addr_v6 = Default::default();
         let control_permissions = ph.control_permissions.into_option();
         if peer_addr_v6.port() > 0 && !relay {
@@ -619,6 +619,7 @@ impl RendezvousMediator {
             nat_type: nat_type.into(),
             version: crate::VERSION.to_owned(),
             socket_addr_v6,
+            relay_use_wss: ph.relay_use_wss,
             ..Default::default()
         };
         if ph.udp_port > 0 {
@@ -738,9 +739,9 @@ impl RendezvousMediator {
     }
 
     fn get_relay_server(&self, provided_by_rendezvous_server: String) -> String {
-        let mut relay_server = Config::get_option("relay-server");
+        let mut relay_server = provided_by_rendezvous_server;
         if relay_server.is_empty() {
-            relay_server = provided_by_rendezvous_server;
+            relay_server = Config::get_option("relay-server");
         }
         if relay_server.is_empty() {
             relay_server = crate::increase_port(&self.host, 1);
