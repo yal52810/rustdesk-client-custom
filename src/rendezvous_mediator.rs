@@ -498,7 +498,7 @@ impl RendezvousMediator {
                 peer_addr_v6,
                 addr,
                 server.clone(),
-                fla.control_permissions.clone().into_option(),
+                None,
             )
             .await;
         }
@@ -526,7 +526,7 @@ impl RendezvousMediator {
             true,
             true,
             socket_addr_v6,
-            fla.control_permissions.into_option(),
+            None,
         )
         .await
     }
@@ -562,7 +562,7 @@ impl RendezvousMediator {
             socket,
             peer_addr,
             true,
-            fla.control_permissions.into_option(),
+            None,
         )
         .await;
         Ok(())
@@ -579,7 +579,7 @@ impl RendezvousMediator {
         let peer_addr_v6 = hbb_common::AddrMangle::decode(&ph.socket_addr_v6);
         let relay = use_ws() || Config::is_proxy() || ph.force_relay || ph.relay_use_wss;
         let mut socket_addr_v6 = Default::default();
-        let control_permissions = ph.control_permissions.into_option();
+        let control_permissions = None;
         if peer_addr_v6.port() > 0 && !relay {
             socket_addr_v6 = start_ipv6(
                 peer_addr_v6,
