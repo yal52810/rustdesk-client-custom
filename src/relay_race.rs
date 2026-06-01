@@ -5,7 +5,7 @@
 //! - TcpOnly (专业版): 仅 TCP+ChaCha20，300ms 快速降级
 //! - WssOnly (企业校园版): 仅 WSS+TLS，300ms 快速降级
 
-use hbb_common::{config::Config, log};
+use hbb_common::{config::Config, log, tokio};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
