@@ -97,6 +97,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -324,6 +329,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -479,6 +489,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -609,6 +624,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
 
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
@@ -929,6 +949,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -1206,6 +1231,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -1376,6 +1406,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
 
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
@@ -1712,6 +1747,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -1919,6 +1959,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -1997,6 +2042,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
+
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
         shell: bash
@@ -2062,6 +2112,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Apply custom protobuf patches
+        shell: bash
+        run: |
+          cp .github/patches/rendezvous.proto libs/hbb_common/protos/rendezvous.proto
 
       - name: Apply custom server config (optional)
         if: ${{ env.RENDEZVOUS_SERVER != '' || env.RELAY_SERVER != '' || env.API_SERVER != '' || env.RS_PUB_KEY != '' }}
