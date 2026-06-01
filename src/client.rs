@@ -36,6 +36,8 @@ use crate::{
     ui_interface::{get_builtin_option, use_texture_render},
     ui_session_interface::{InvokeUiSession, Session},
 };
+#[cfg(not(any(target_os = "ios")))]
+use crate::relay_race;
 #[cfg(feature = "unix-file-copy-paste")]
 use crate::{clipboard::check_clipboard_files, clipboard_file::unix_file_clip};
 pub use file_trait::FileManager;
@@ -406,6 +408,26 @@ impl Client {
         }
         log::info!("rendezvous server: {}", rendezvous_server);
         let mut socket = socket?;
+        // Spawn relay racing in parallel with NAT detection — fires TCP+WSS probes
+        // to all relay nodes concurrently, first to complete wins. Worst case adds
+        // ~800ms latency on the connection path, but avoids the 18s CONNECT_TIMEOUT
+        // when the default relay is unreachable.
+        let race_handle = tokio::spawn(async move {
+            let nodes = relay_race::fetch_relay_server_list().await;
+            if nodes.is_empty() {
+                return None;
+            }
+            let mode = relay_race::get_connection_mode();
+            match mode {
+                relay_race::ConnectionMode::Auto => relay_race::race_concurrent(&nodes).await.ok(),
+                relay_race::ConnectionMode::TcpOnly => {
+                    relay_race::race_fallback_tcp(&nodes).await.ok()
+                }
+                relay_race::ConnectionMode::WssOnly => {
+                    relay_race::race_fallback_wss(&nodes).await.ok()
+                }
+            }
+        });
         let my_addr = socket.local_addr();
         let mut signed_id_pk = Vec::new();
         let mut relay_server = "".to_owned();
@@ -442,6 +464,21 @@ impl Client {
         }
         // Stop UDP NAT test task if still running
         stop_udp_tx.map(|tx| tx.send(()));
+        // Await relay race result (ran in parallel with NAT detection)
+        let race_result = race_handle.await.unwrap_or(None);
+        let (selected_relay, selected_use_wss) = if let Some(ref result) = race_result {
+            log::info!(
+                "Relay race winner: node={}, protocol={:?}",
+                result.node.name,
+                result.protocol
+            );
+            (
+                result.node.addr_for(result.protocol).to_owned(),
+                result.protocol.is_wss(),
+            )
+        } else {
+            (String::new(), false)
+        };
         let mut msg_out = RendezvousMessage::new();
         let mut ipv6 = if crate::get_ipv6_punch_enabled() {
             if let Some((socket, addr)) = crate::get_ipv6_socket().await {
@@ -464,6 +501,8 @@ impl Client {
             udp_port: udp_nat_port as _,
             force_relay: interface.is_force_relay(),
             socket_addr_v6: ipv6.1.unwrap_or_default(),
+            relay_server: selected_relay.clone(),
+            relay_use_wss: selected_use_wss,
             ..Default::default()
         });
         for i in 1..=3 {
