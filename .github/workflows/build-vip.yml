@@ -16,5 +16,5 @@ jobs:
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
-      upload-tag: ${{ github.ref_name || 'nightly' }}
+      upload-tag: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'nightly' }}
     secrets: inherit
