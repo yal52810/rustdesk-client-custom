@@ -111,27 +111,29 @@ pub async fn race_concurrent(
 
     for node in nodes {
         let node = node.clone();
+        let has_wss = node.support_wss && !node.ws_host.is_empty();
 
         // 探针 A: TCP + ChaCha20 (500ms 超时)
+        let node_tcp = node.clone();
         tasks.push(tokio::spawn(async move {
             let result = tokio::time::timeout(
                 Duration::from_millis(500),
-                connect_tcp_encrypted(&node.relay_server),
+                connect_tcp_encrypted(&node_tcp.relay_server),
             )
             .await;
-            result.map(|r| (node.clone(), RelayProtocol::TcpEncrypted, r))
+            result.map(|r| (node_tcp.clone(), RelayProtocol::TcpEncrypted, r))
         }));
 
         // 探针 B: WSS + TLS (800ms 超时)
-        if node.support_wss && !node.ws_host.is_empty() {
-            let node = node.clone();
+        if has_wss {
+            let node_wss = node.clone();
             tasks.push(tokio::spawn(async move {
                 let result = tokio::time::timeout(
                     Duration::from_millis(800),
-                    connect_wss(&node.ws_host),
+                    connect_wss(&node_wss.ws_host),
                 )
                 .await;
-                result.map(|r| (node.clone(), RelayProtocol::Wss, r))
+                result.map(|r| (node_wss.clone(), RelayProtocol::Wss, r))
             }));
         }
     }
